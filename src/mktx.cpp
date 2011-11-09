@@ -13,6 +13,7 @@
 
 #include <getopt.h>
 #include <functional>
+#include <fstream>
 #include <iostream>
 #include <string>
 #include <boost/algorithm/string.hpp>
@@ -25,6 +26,7 @@ using std::placeholders::_2;
 
 const option long_opts[] = {
     {"previous-output", required_argument, NULL, 'p'},
+    {"keypair", required_argument, NULL, 'k'},
     {"recipient", required_argument, NULL, 'r'},
     {"host", required_argument, NULL, 'H'},
     {"port", required_argument, NULL, 'P'},
@@ -32,7 +34,7 @@ const option long_opts[] = {
     {NULL, no_argument, NULL, 0}
 };
 
-const char* opt_string = "p:r:H:P:h";
+const char* opt_string = "p:k:r:H:P:h";
 
 void display_help()
 {
@@ -45,7 +47,9 @@ void display_help()
     puts("");
     puts("Options:");
     puts("");
-    puts(" -p, --previous-output\tPrevious output in the form OUT:INDEX");
+    puts(" -p, --previous-output\tPrevious output in the form NAME@OUT:INDEX");
+    puts(" -k, --keypair\t\tLoad a keypair with an identifier NAME@FILE");
+    puts("\t\t\tA single dash - for FILE will load from STDIN");
     puts(" -r, --recipient\tSpecify a destination ADDRESS:AMOUNT");
     puts("\t\t\tAMOUNT uses internal bitcoin values");
     puts("\t\t\t  0.1 BTC = 0.1 * 10^8 = 1000000");
@@ -101,28 +105,63 @@ script build_output_script(const short_hash& public_key_hash)
     return result;
 }
 
+struct origin
+{
+    std::string keypair_name;
+    output_point out;
+};
+
 struct destination
 {
     std::string address;
     uint64_t amount;
 };
 
-void create(std::vector<output_point> previous_outputs,
-    std::vector<destination> endpoints, const elliptic_curve_key& key)
+struct named_keypair
 {
-    if (previous_outputs.size() != 1)
-        error_exit("more than 1 previous output not supported yet");
+    std::string name;
+    shared_ptr<elliptic_curve_key> key;
+};
 
+shared_ptr<elliptic_curve_key> load_private_key(const std::string name,  
+    const std::vector<named_keypair>& keypairs)
+{
+    for (const named_keypair& keyp: keypairs)
+        if (name == keyp.name)
+            return keyp.key;
+    return nullptr;
+}
+
+data_chunk load_public_key(const std::string name, 
+    const std::vector<named_keypair>& keypairs)
+{
+    auto keypair = load_private_key(name, keypairs);
+    if (keypair == nullptr)
+        return data_chunk();
+    return keypair->get_public_key();
+}
+
+void create(const std::vector<origin>& originators,
+    const std::vector<destination>& endpoints,
+    const std::vector<named_keypair>& keypairs)
+{
     transaction tx;
     tx.version = 1;
     tx.locktime = 0;
 
-    transaction_input input;
-    input.previous_output = previous_outputs[0];
-    input.sequence = 4294967295;
-    data_chunk public_key = key.get_public_key();
-    input.input_script.push_operation({opcode::special, public_key});
-    tx.inputs.push_back(input);
+    for (const origin& previous: originators)
+    {
+        transaction_input input;
+        input.previous_output = previous.out;
+        input.sequence = 4294967295;
+        data_chunk public_key =
+            load_public_key(previous.keypair_name, keypairs);
+        if (public_key.empty())
+            error_exit(
+                std::string("missing keypair: ") + previous.keypair_name);
+        input.input_script.push_operation({opcode::special, public_key});
+        tx.inputs.push_back(input);
+    }
 
     for (const destination& dest: endpoints)
     {
@@ -133,21 +172,29 @@ void create(std::vector<output_point> previous_outputs,
         tx.outputs.push_back(output);
     }
 
-    // Rebuild previous output script
-    script script_code = 
-        build_output_script(generate_ripemd_hash(public_key));
+    BITCOIN_ASSERT(tx.inputs.size() == originators.size());
+    for (size_t i = 0; i < originators.size(); ++i)
+    {
+        transaction_input& input = tx.inputs[i];
+        const origin& previous = originators[i];
+        // Rebuild previous output script
+        auto key = load_private_key(previous.keypair_name, keypairs);
+        data_chunk public_key = key->get_public_key();
+        script script_code = 
+            build_output_script(generate_ripemd_hash(public_key));
 
-    hash_digest tx_hash =
-        script::generate_signature_hash(tx, 0, script_code, 1);
-    if (tx_hash == null_hash)
-        error_exit("error generating signature hash");
-    data_chunk signature = key.sign(tx_hash);
-    signature.push_back(0x01);
+        hash_digest tx_hash =
+            script::generate_signature_hash(tx, i, script_code, 1);
+        if (tx_hash == null_hash)
+            error_exit("error generating signature hash");
+        data_chunk signature = key->sign(tx_hash);
+        signature.push_back(0x01);
 
-    script& input_script = tx.inputs[0].input_script;
-    input_script = script();
-    input_script.push_operation({opcode::special, signature});
-    input_script.push_operation({opcode::special, public_key});
+        script& input_script = input.input_script;
+        input_script = script();
+        input_script.push_operation({opcode::special, signature});
+        input_script.push_operation({opcode::special, public_key});
+    }
 
     original_dialect convert_tx;
     data_chunk raw_tx = convert_tx.to_network(tx);
@@ -171,22 +218,29 @@ int send(const message::transaction& tx,
     return 0;
 }
 
-std::string read_stdin()
+std::string dump_file(std::istream& in_file)
 {
-    std::istreambuf_iterator<char> it(std::cin);
+    std::istreambuf_iterator<char> it(in_file);
     std::istreambuf_iterator<char> end;
     return std::string(it, end);
 }
 
-private_data read_private_key()
+private_data read_private_key(const std::string& filename)
 {
-    std::string raw_private_key = read_stdin();
+    std::string raw_private_key;
+    if (filename == "-")
+        raw_private_key = dump_file(std::cin);
+    else
+    {
+        std::ifstream in_file(filename);
+        raw_private_key = dump_file(in_file);
+    }
     return private_data(raw_private_key.begin(), raw_private_key.end());
 }
 
 message::transaction read_transaction()
 {
-    std::string raw_tx_string = read_stdin();
+    std::string raw_tx_string = dump_file(std::cin);
     data_chunk raw_tx(raw_tx_string.begin(), raw_tx_string.end());
     original_dialect convert_tx;
     return convert_tx.transaction_from_network(raw_tx);
@@ -203,7 +257,8 @@ int main(int argc, char** argv)
     argc--;
     argv++;
 
-    std::vector<output_point> previous_outputs;
+    std::vector<origin> originators;
+    std::vector<named_keypair> keypairs;
     std::vector<destination> endpoints;
 
     std::string hostname = "localhost";
@@ -217,16 +272,38 @@ int main(int argc, char** argv)
         {
             case 'p':
             {
+                std::vector<std::string> outkey_parts;
+                boost::split(outkey_parts, optarg, boost::is_any_of("@"));
+                if (outkey_parts.size() != 2)
+                    error_exit("name of a keypair is required");
                 std::vector<std::string> output_parts;
-                boost::split(output_parts, optarg, boost::is_any_of(":"));
+                boost::split(output_parts, outkey_parts[1], 
+                    boost::is_any_of(":"));
                 if (output_parts.size() != 2)
                     error_exit("output requires transaction hash and index");
-                output_point prevout;
-                prevout.hash = hash_from_pretty(output_parts[0]);
-                if (prevout.hash == null_hash)
+                origin previous;
+                previous.keypair_name = outkey_parts[0];
+                previous.out.hash = hash_from_pretty(output_parts[0]);
+                if (previous.out.hash == null_hash)
                     error_exit("malformed previous output transaction hash");
-                prevout.index = boost::lexical_cast<uint32_t>(output_parts[1]);
-                previous_outputs.push_back(prevout);
+                previous.out.index = 
+                    boost::lexical_cast<uint32_t>(output_parts[1]);
+                originators.push_back(previous);
+                break;
+            }
+
+            case 'k':
+            {
+                std::vector<std::string> key_parts;
+                boost::split(key_parts, optarg, boost::is_any_of("@"));
+                if (key_parts.size() != 2)
+                    error_exit("name of a keypair is required");
+                named_keypair kp;
+                kp.name = key_parts[0];
+                kp.key.reset(new elliptic_curve_key());
+                if (!kp.key->set_private_key(read_private_key(key_parts[1])))
+                    error_exit("bad private key");
+                keypairs.push_back(kp);
                 break;
             }
             
@@ -265,14 +342,11 @@ int main(int argc, char** argv)
     size_t number_args = argc - 2, arg_index = 2;
     if (command == "create")
     {
-        if (previous_outputs.empty())
+        if (originators.empty())
             error_exit("need at least one previous output");
         if (endpoints.empty())
             error_exit("need at least one recipient");
-        elliptic_curve_key key;
-        if (!key.set_private_key(read_private_key()))
-            error_exit("bad private key");
-        create(previous_outputs, endpoints, key);
+        create(originators, endpoints, keypairs);
     }
     else if (command == "send")
     {

@@ -78,9 +78,9 @@ int address(const std::string raw_private_key)
 
 std::string read_private_key()
 {
-    std::string raw_private_key;
-    std::getline(std::cin, raw_private_key);
-    return raw_private_key;
+    std::istreambuf_iterator<char> it(std::cin);
+    std::istreambuf_iterator<char> end;
+    return std::string(it, end);
 }
 
 int main(int argc, char** argv)
