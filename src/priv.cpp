@@ -11,7 +11,7 @@ using libbitcoin::hash_digest;
 using libbitcoin::data_chunk;
 using libbitcoin::hash_from_pretty;
 using libbitcoin::bytes_from_pretty;
-using libbitcoin::pubkey_to_address;
+using libbitcoin::public_key_to_address;
 using libbitcoin::pretty_hex;
 using libbitcoin::private_data;
 using libbitcoin::log_info;
@@ -72,7 +72,7 @@ int address(const std::string raw_private_key)
     if (!ec.set_private_key(
             private_data(raw_private_key.begin(), raw_private_key.end())))
         error_exit("bad private key");
-    log_info() << pubkey_to_address(ec.get_public_key());
+    log_info() << public_key_to_address(ec.get_public_key());
     return 0;
 }
 
