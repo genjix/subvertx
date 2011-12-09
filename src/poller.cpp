@@ -44,7 +44,7 @@ poller_application::poller_application(std::string dbname,
         std::string dbuser, std::string dbpass)
   : kernel_(new kernel)
 {
-    network_.reset(new network_impl);
+    network_.reset(new network);
     kernel_->register_network(network_);
 
     storage_.reset(new postgresql_storage(kernel_, dbname, dbuser, dbpass));

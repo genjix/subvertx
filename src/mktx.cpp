@@ -84,13 +84,13 @@ void handle_tx_sent(const std::error_code& ec)
     close_application();
 }
 
-void handle_connected(const std::error_code& ec, channel_handle chandle,
-    network_ptr net, const message::transaction& tx)
+void handle_connected(const std::error_code& ec, channel_ptr node,
+    const message::transaction& tx)
 {
     if (ec)
         error_exit(ec.message());
     log_info() << "Connected";
-    net->send(chandle, tx, handle_tx_sent);
+    node->send(tx, handle_tx_sent);
 }
 
 script build_output_script(const short_hash& public_key_hash)
@@ -206,9 +206,9 @@ void create(const std::vector<origin>& originators,
 int send(const message::transaction& tx, 
     const std::string& hostname, unsigned short port)
 {
-    network_ptr net(new network_impl);
+    network_ptr net(new network);
     handshake_connect(net, hostname, port, 
-        std::bind(&handle_connected, _1, _2, net, tx));
+        std::bind(&handle_connected, _1, _2, tx));
 
     std::unique_lock<std::mutex> lock(mutex);
     condition.wait(lock, []{ return finished; });
