@@ -10,7 +10,7 @@
 #include <bitcoin/types.hpp>
 #include <bitcoin/kernel.hpp>
 #include <bitcoin/network/network.hpp>
-#include <bitcoin/storage/postgresql_storage.hpp>
+#include <bitcoin/blockchain/postgresql_blockchain.hpp>
 #include <bitcoin/util/logger.hpp>
 #include <bitcoin/util/postbind.hpp>
 
@@ -35,7 +35,7 @@ public:
 private:
     kernel_ptr kernel_;
     network_ptr network_;
-    storage_ptr storage_;
+    blockchain_ptr blockchain_;
 };
 
 typedef std::shared_ptr<poller_application> poller_application_ptr;
@@ -47,8 +47,8 @@ poller_application::poller_application(std::string dbname,
     network_.reset(new network);
     kernel_->register_network(network_);
 
-    storage_.reset(new postgresql_storage(kernel_, dbname, dbuser, dbpass));
-    kernel_->register_storage(storage_);
+    blockchain_.reset(new postgresql_blockchain(kernel_, dbname, dbuser, dbpass));
+    kernel_->register_blockchain(blockchain_);
 }
 
 void poller_application::start(std::string hostname, unsigned int port)

@@ -1,8 +1,8 @@
 #include <bitcoin/constants.hpp>
 #include <bitcoin/address.hpp>
 #include <bitcoin/kernel.hpp>
-#include <bitcoin/storage/storage.hpp>
-#include <bitcoin/storage/postgresql_storage.hpp>
+#include <bitcoin/blockchain/blockchain.hpp>
+#include <bitcoin/blockchain/postgresql_blockchain.hpp>
 #include <bitcoin/util/base58.hpp>
 #include <bitcoin/util/logger.hpp>
 #include <bitcoin/util/assert.hpp>
@@ -13,8 +13,8 @@
 
 using libbitcoin::kernel_ptr;
 using libbitcoin::kernel;
-using libbitcoin::storage_ptr;
-using libbitcoin::postgresql_storage;
+using libbitcoin::blockchain_ptr;
+using libbitcoin::postgresql_blockchain;
 using libbitcoin::data_chunk;
 using libbitcoin::address_to_short_hash;
 using libbitcoin::short_hash;
@@ -61,12 +61,12 @@ int main(int argc, char** argv)
     boost::split(backend_parameters, argv[1], boost::is_any_of(":"));
     BITCOIN_ASSERT(!backend_parameters.empty());
     kernel_ptr core(new kernel);
-    storage_ptr backend;
+    blockchain_ptr backend;
     if (backend_parameters[0] == "postgresql")
     {
         if (backend_parameters.size() != 4)
             error_exit("postgresql database backend requires 3 parameters");
-        backend.reset(new postgresql_storage(core, backend_parameters[1],
+        backend.reset(new postgresql_blockchain(core, backend_parameters[1],
             backend_parameters[2], backend_parameters[3]));
     }
     else
