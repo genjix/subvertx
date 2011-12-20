@@ -12,7 +12,6 @@
 #include <bitcoin/network/network.hpp>
 #include <bitcoin/blockchain/postgresql_blockchain.hpp>
 #include <bitcoin/util/logger.hpp>
-#include <bitcoin/util/postbind.hpp>
 
 using namespace libbitcoin;
 using std::placeholders::_1;

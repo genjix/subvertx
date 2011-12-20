@@ -138,7 +138,7 @@ data_chunk load_public_key(const std::string name,
     auto keypair = load_private_key(name, keypairs);
     if (keypair == nullptr)
         return data_chunk();
-    return keypair->get_public_key();
+    return keypair->public_key();
 }
 
 void create(const std::vector<origin>& originators,
@@ -179,7 +179,7 @@ void create(const std::vector<origin>& originators,
         const origin& previous = originators[i];
         // Rebuild previous output script
         auto key = load_private_key(previous.keypair_name, keypairs);
-        data_chunk public_key = key->get_public_key();
+        data_chunk public_key = key->public_key();
         script script_code = 
             build_output_script(generate_ripemd_hash(public_key));
 

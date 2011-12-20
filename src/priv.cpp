@@ -37,7 +37,7 @@ int new_keypair()
 {
     elliptic_curve_key ec;
     ec.new_key_pair();
-    private_data raw_private_key = ec.get_private_key();
+    private_data raw_private_key = ec.private_key();
     std::cout << std::string(raw_private_key.begin(), raw_private_key.end());
     return 0;
 }
@@ -72,7 +72,7 @@ int address(const std::string raw_private_key)
     if (!ec.set_private_key(
             private_data(raw_private_key.begin(), raw_private_key.end())))
         error_exit("bad private key");
-    log_info() << public_key_to_address(ec.get_public_key());
+    log_info() << public_key_to_address(ec.public_key());
     return 0;
 }
 
