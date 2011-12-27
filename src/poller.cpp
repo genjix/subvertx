@@ -59,7 +59,7 @@ int main(int argc, const char** argv)
 {
     if (argc < 5)
     {
-        log_info() << "poller [DBNAME] [DBUSER] [DBPASSWORD] [HOST:PORT] ...";
+        log_info() << "poller <database> <db user> <db password> <host>[@<port>] ...";
         return -1;
     }
     log_info() << "Starting poller... CTRL-D (EOF) to exit.";
@@ -68,7 +68,7 @@ int main(int argc, const char** argv)
     for (int hosts_iter = 4; hosts_iter < argc; ++hosts_iter)
     {
         std::vector<std::string> args;
-        boost::split(args, argv[hosts_iter], boost::is_any_of(":"));
+        boost::split(args, argv[hosts_iter], boost::is_any_of("@"));
         if (args.size() == 1)
             app->start(args[0], 8333);
         else
