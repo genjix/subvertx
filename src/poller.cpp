@@ -74,13 +74,9 @@ int main(int argc, const char** argv)
         else
             app->start(args[0], boost::lexical_cast<unsigned int>(args[1]));
     }
-    while (true)
-    {
-        char n;
-        std::cin >> n;
-        if (std::cin.eof())
-            break;
-    }
+
+    while(std::cin.get() != -1) {}
+
     return 0;
 }
 
