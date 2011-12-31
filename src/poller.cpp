@@ -70,7 +70,7 @@ int main(int argc, const char** argv)
             app->start(args[0], boost::lexical_cast<unsigned int>(args[1]));
     }
 
-    while(std::cin.get() != -1) {}
+    while (std::cin.get() != -1);
 
     return 0;
 }
