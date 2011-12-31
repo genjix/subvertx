@@ -1,7 +1,4 @@
-#include <bitcoin/util/elliptic_curve_key.hpp>
-#include <bitcoin/util/logger.hpp>
-#include <bitcoin/types.hpp>
-#include <bitcoin/address.hpp>
+#include <bitcoin/bitcoin.hpp>
 
 #include <iostream>
 #include <sstream>

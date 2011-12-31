@@ -1,6 +1,6 @@
 AM_CPPFLAGS = ${libbitcoin_CFLAGS}
 
-bin_PROGRAMS = poller balance mktx priv
+bin_PROGRAMS = poller balance mktx txrad priv
 
 poller_SOURCES = poller.cpp
 poller_LDADD = ${libbitcoin_LIBS}
@@ -10,6 +10,9 @@ balance_LDADD = ${libbitcoin_LIBS}
 
 mktx_SOURCES = mktx.cpp
 mktx_LDADD = ${libbitcoin_LIBS}
+
+txrad_SOURCES = txrad.cpp
+txrad_LDADD = ${libbitcoin_LIBS}
 
 priv_SOURCES = priv.cpp
 priv_LDADD = ${libbitcoin_LIBS}

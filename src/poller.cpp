@@ -6,12 +6,7 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/algorithm/string.hpp>
 
-#include <bitcoin/constants.hpp>
-#include <bitcoin/types.hpp>
-#include <bitcoin/kernel.hpp>
-#include <bitcoin/network/network.hpp>
-#include <bitcoin/blockchain/postgresql_blockchain.hpp>
-#include <bitcoin/util/logger.hpp>
+#include <bitcoin/bitcoin.hpp>
 
 using namespace libbitcoin;
 using std::placeholders::_1;

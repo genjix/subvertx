@@ -1,15 +1,8 @@
-#include <bitcoin/constants.hpp>
-#include <bitcoin/address.hpp>
-#include <bitcoin/kernel.hpp>
-#include <bitcoin/blockchain/blockchain.hpp>
-#include <bitcoin/blockchain/postgresql_blockchain.hpp>
-#include <bitcoin/util/base58.hpp>
-#include <bitcoin/util/logger.hpp>
-#include <bitcoin/util/assert.hpp>
-
 #include <iostream>
 #include <vector>
 #include <boost/algorithm/string.hpp>
+
+#include <bitcoin/bitcoin.hpp>
 
 using libbitcoin::kernel_ptr;
 using libbitcoin::kernel;

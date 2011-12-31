@@ -1,23 +1,12 @@
-#include <bitcoin/address.hpp>
-#include <bitcoin/constants.hpp>
-#include <bitcoin/dialect.hpp>
-#include <bitcoin/messages.hpp>
-#include <bitcoin/kernel.hpp>
-#include <bitcoin/types.hpp>
-#include <bitcoin/transaction.hpp>
-#include <bitcoin/network/network.hpp>
-#include <bitcoin/util/assert.hpp>
-#include <bitcoin/util/elliptic_curve_key.hpp>
-#include <bitcoin/util/logger.hpp>
-#include <bitcoin/util/ripemd.hpp>
-
-#include <getopt.h>
 #include <functional>
 #include <fstream>
 #include <iostream>
 #include <string>
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
+#include <getopt.h>
+
+#include <bitcoin/bitcoin.hpp>
 
 using namespace libbitcoin;
 using namespace libbitcoin::message;
@@ -196,7 +185,7 @@ void create(const std::vector<origin>& originators,
         input_script.push_operation({opcode::special, public_key});
     }
 
-    original_dialect convert_tx;
+    satoshi_exporter convert_tx;
     data_chunk raw_tx = convert_tx.to_network(tx);
     BITCOIN_ASSERT(raw_tx ==
         convert_tx.to_network(convert_tx.transaction_from_network(raw_tx)));
@@ -242,7 +231,7 @@ message::transaction read_transaction()
 {
     std::string raw_tx_string = dump_file(std::cin);
     data_chunk raw_tx(raw_tx_string.begin(), raw_tx_string.end());
-    original_dialect convert_tx;
+    satoshi_exporter convert_tx;
     return convert_tx.transaction_from_network(raw_tx);
 }
 
