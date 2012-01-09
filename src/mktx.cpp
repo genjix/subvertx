@@ -196,7 +196,9 @@ int send(const message::transaction& tx,
     const std::string& hostname, unsigned short port)
 {
     network_ptr net(new network);
-    handshake_connect(net, hostname, port, 
+    handshake_ptr shake(new handshake);
+
+    shake->connect(net, hostname, port,
         std::bind(&handle_connected, _1, _2, tx));
 
     std::unique_lock<std::mutex> lock(mutex);
