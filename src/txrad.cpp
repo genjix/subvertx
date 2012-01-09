@@ -1,7 +1,9 @@
 #include <boost/lexical_cast.hpp>
 
-#include <bitcoin/network/network.hpp>
+#include <bitcoin/bitcoin.hpp>
 using namespace libbitcoin;
+using std::placeholders::_1;
+using std::placeholders::_2;
 
 class radar;
 typedef std::shared_ptr<radar> radar_ptr;
@@ -36,6 +38,7 @@ private:
 
     network_ptr network_;
     channel_ptr feeder_;
+    handshake_ptr handshake_;
     size_t counter_;
     std::map<hash_digest, size_t> seen_txs_;
 };
@@ -53,12 +56,13 @@ void radar::initialize()
 {
     // We can be sure the base classes exist here
     network_ = std::make_shared<network>();
+    handshake_ = std::make_shared<handshake>();
     counter_ = 0;
 }
 
 void radar::start()
 {
-    handshake_connect(network_, "localhost", 8333,
+    handshake_->connect(network_, "localhost", 8333,
         std::bind(&radar::initial_handshake, shared_from_this(), _1, _2));
 }
 
@@ -104,7 +108,7 @@ void radar::receive_addr(const std::error_code& ec,
             char_repr(netaddr.ip[14]) + "." +
             char_repr(netaddr.ip[15]);
         log_debug() << "Connecting to: " << ip_repr;
-        handshake_connect(network_, ip_repr, 8333,
+        handshake_->connect(network_, ip_repr, 8333,
             std::bind(&radar::monitor, shared_from_this(), _1, _2));
     }
 }
