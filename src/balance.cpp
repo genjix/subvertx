@@ -4,10 +4,9 @@
 
 #include <bitcoin/bitcoin.hpp>
 
-using libbitcoin::kernel_ptr;
-using libbitcoin::kernel;
 using libbitcoin::blockchain_ptr;
-using libbitcoin::postgresql_blockchain;
+//using libbitcoin::postgresql_blockchain;
+using libbitcoin::bdb_blockchain;
 using libbitcoin::data_chunk;
 using libbitcoin::address_to_short_hash;
 using libbitcoin::short_hash;
@@ -18,7 +17,7 @@ void display_help()
     puts("Usage: balance [BACKEND] [ADDRESS]");
     puts("");
     puts("BACKEND consists of a colon separated list of parameters.");
-    puts("  postgresql:database:username:password");
+    puts("  Currently just: bdb");
 }
 
 void error_exit(const std::string& message, int status=1)
@@ -53,14 +52,18 @@ int main(int argc, char** argv)
     std::vector<std::string> backend_parameters;
     boost::split(backend_parameters, argv[1], boost::is_any_of(":"));
     BITCOIN_ASSERT(!backend_parameters.empty());
-    kernel_ptr core(new kernel);
     blockchain_ptr backend;
     if (backend_parameters[0] == "postgresql")
     {
-        if (backend_parameters.size() != 4)
-            error_exit("postgresql database backend requires 3 parameters");
+        /*if (backend_parameters.size() != 4)
+            error_exit("PostgreSQL database backend requires 3 parameters");
         backend.reset(new postgresql_blockchain(core, backend_parameters[1],
-            backend_parameters[2], backend_parameters[3]));
+            backend_parameters[2], backend_parameters[3]));*/
+	error_exit("PostgreSQL backend is not available at this time.");
+    }
+    else if (backend_parameters[0] == "bdb")
+    {
+        backend = std::make_shared<bdb_blockchain>("database/");
     }
     else
         error_exit("invalid backend specified");
