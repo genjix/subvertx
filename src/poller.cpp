@@ -1,75 +1,171 @@
-#include <iostream>
-#include <functional>
-#include <memory>
-
-#include <boost/asio.hpp>
-#include <boost/date_time/posix_time/posix_time.hpp>
-#include <boost/algorithm/string.hpp>
-
 #include <bitcoin/bitcoin.hpp>
-
 using namespace libbitcoin;
+
 using std::placeholders::_1;
 using std::placeholders::_2;
 
-using boost::asio::deadline_timer;
-using boost::posix_time::seconds;
-typedef std::shared_ptr<deadline_timer> deadline_timer_ptr;
-
-class poller_application
+class pollapp
   : public threaded_service,
-    public std::enable_shared_from_this<poller_application>
+    public std::enable_shared_from_this<pollapp>
 {
 public:
-    poller_application(std::string dbname, 
-            std::string dbuser, std::string dbpass);
+    pollapp();
 
     void start(std::string hostname, unsigned int port);
 
 private:
-    kernel_ptr kernel_;
+    void handle_connect(const std::error_code& ec, channel_ptr node);
+    void initial_ask_blocks(const std::error_code& ec,
+        const message::block_locator& loc);
+
+    void recv_inv(const std::error_code& ec,
+        const message::inventory& packet);
+    void recv_blk(const std::error_code& ec,
+        const message::block& blk);
+
+    void handle_store(const std::error_code& ec, block_info info,
+        const hash_digest& block_hash);
+    void ask_blocks(const std::error_code& ec,
+        const message::block_locator& loc, const hash_digest& hash_stop);
+
     network_ptr network_;
-    blockchain_ptr blockchain_;
+    handshake_ptr handshake_;
+    blockchain_ptr chain_;
+    channel_ptr node_;
 };
 
-typedef std::shared_ptr<poller_application> poller_application_ptr;
+typedef std::shared_ptr<pollapp> pollapp_ptr;
 
-poller_application::poller_application(std::string dbname, 
-        std::string dbuser, std::string dbpass)
-  : kernel_(new kernel)
+pollapp::pollapp()
 {
-    network_.reset(new network);
-    kernel_->register_network(network_);
-
-    blockchain_.reset(new postgresql_blockchain(kernel_, dbname, dbuser, dbpass));
-    kernel_->register_blockchain(blockchain_);
+    network_ = std::make_shared<network>();
+    handshake_ = std::make_shared<handshake>();
+    chain_ = std::make_shared<bdb_blockchain>("database/");
 }
 
-void poller_application::start(std::string hostname, unsigned int port)
+void pollapp::start(std::string hostname, unsigned int port)
 {
-    kernel_->connect(hostname, port);
+    handshake_->connect(network_, "localhost", 8333,
+        std::bind(&pollapp::handle_connect, shared_from_this(), _1, _2));
+}
+
+void pollapp::handle_connect(const std::error_code& ec, channel_ptr node)
+{
+    if (ec)
+    {
+        log_fatal() << ec.message();
+        return;
+    }
+    node_ = node;
+    chain_->fetch_block_locator(
+        std::bind(&pollapp::initial_ask_blocks, shared_from_this(), _1, _2));
+}
+
+void handle_send_packet(const std::error_code& ec)
+{
+    if (ec)
+        log_error() << ec.message();
+}
+
+void pollapp::initial_ask_blocks(const std::error_code& ec,
+    const message::block_locator& loc)
+{
+    if (ec)
+    {
+        log_fatal() << ec.message();
+        return;
+    }
+    node_->subscribe_inventory(
+        std::bind(&pollapp::recv_inv, shared_from_this(), _1, _2));
+    node_->subscribe_block(
+        std::bind(&pollapp::recv_blk, shared_from_this(), _1, _2));
+    ask_blocks(ec, loc, null_hash);
+}
+
+void pollapp::recv_inv(const std::error_code& ec,
+    const message::inventory& packet)
+{
+    if (ec)
+    {
+        log_fatal() << ec.message();
+        return;
+    }
+    message::get_data getdata;
+    for (const message::inventory_vector& ivv: packet.inventories)
+    {
+        if (ivv.type != message::inventory_type::block)
+            continue;
+        getdata.inventories.push_back(ivv);
+    }
+    node_->send(getdata, handle_send_packet);
+    // Re-subscribe
+    node_->subscribe_inventory(
+        std::bind(&pollapp::recv_inv, shared_from_this(), _1, _2));
+}
+
+void pollapp::recv_blk(const std::error_code& ec,
+    const message::block& blk)
+{
+    if (ec)
+    {
+        log_fatal() << ec.message();
+        return;
+    }
+    chain_->store(blk,
+        std::bind(&pollapp::handle_store, shared_from_this(),
+            _1, _2, hash_block_header(blk)));
+    // Re-subscribe
+    node_->subscribe_block(
+        std::bind(&pollapp::recv_blk, shared_from_this(), _1, _2));
+}
+
+void pollapp::handle_store(const std::error_code& ec, block_info info,
+    const hash_digest& block_hash)
+{
+    if (ec)
+    {
+        log_fatal() << ec.message();
+        return;
+    }
+    switch (info.status)
+    {
+        case block_status::orphan:
+            chain_->fetch_block_locator(
+                std::bind(&pollapp::ask_blocks, shared_from_this(),
+                    _1, _2, block_hash));
+            break;
+
+        case block_status::rejected:
+            log_error() << "Rejected block " << pretty_hex(block_hash);
+            break;
+
+        case block_status::confirmed:
+            log_debug() << "block #" << info.depth;
+            break;
+    }
+}
+
+void pollapp::ask_blocks(const std::error_code& ec,
+    const message::block_locator& loc, const hash_digest& hash_stop)
+{
+    if (ec)
+    {
+        log_fatal() << ec.message();
+        return;
+    }
+    message::get_blocks packet;
+    packet.locator_start_hashes = loc;
+    packet.hash_stop = hash_stop;
+    node_->send(packet, std::bind(&handle_send_packet, _1));
 }
 
 int main(int argc, const char** argv)
 {
-    if (argc < 5)
-    {
-        log_info() << "poller <database> <db user> <db password> <host>[@<port>] ...";
-        return -1;
-    }
-    log_info() << "Starting poller... CTRL-D (EOF) to exit.";
-    std::string dbname = argv[1], dbuser = argv[2], dbpass = argv[3];
-    poller_application_ptr app(new poller_application(dbname, dbuser, dbpass));
-    for (int hosts_iter = 4; hosts_iter < argc; ++hosts_iter)
-    {
-        std::vector<std::string> args;
-        boost::split(args, argv[hosts_iter], boost::is_any_of("@"));
-        if (args.size() == 1)
-            app->start(args[0], 8333);
-        else
-            app->start(args[0], boost::lexical_cast<unsigned int>(args[1]));
-    }
+    bdb_blockchain::setup("database/");
 
+    pollapp_ptr app = std::make_shared<pollapp>();
+    app->start("localhost", 8333);
+    // Wait for CTRL-D
     while (std::cin.get() != -1);
 
     return 0;
