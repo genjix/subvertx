@@ -3,6 +3,7 @@
 #include <boost/algorithm/string.hpp>
 
 #include <bitcoin/bitcoin.hpp>
+#include <bitcoin/blockchain/bdb_blockchain.hpp>
 
 using libbitcoin::blockchain_ptr;
 //using libbitcoin::postgresql_blockchain;
