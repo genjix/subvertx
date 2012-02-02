@@ -72,7 +72,8 @@ int main(int argc, char** argv)
     short_hash pubkey_hash = address_to_short_hash(argv[2]);
     if (pubkey_hash == null_short_hash)
         error_exit("invalid bitcoin address supplied");
-    backend->fetch_balance(pubkey_hash, recv_balance);
+    error_exit("program disabled! need to fix it someitme :)");
+    //backend->fetch_balance(pubkey_hash, recv_balance);
 
     std::unique_lock<std::mutex> lock(mutex);
     condition.wait(lock, []{ return finished; });
