@@ -3,15 +3,7 @@
 #include <boost/algorithm/string.hpp>
 
 #include <bitcoin/bitcoin.hpp>
-#include <bitcoin/blockchain/bdb_blockchain.hpp>
-
-using libbitcoin::blockchain_ptr;
-//using libbitcoin::postgresql_blockchain;
-using libbitcoin::bdb_blockchain;
-using libbitcoin::data_chunk;
-using libbitcoin::address_to_short_hash;
-using libbitcoin::short_hash;
-using libbitcoin::null_short_hash;
+using namespace bc;
 
 void display_help()
 {
@@ -43,6 +35,14 @@ void recv_balance(const std::error_code& ec, uint64_t value)
     condition.notify_one();
 }
 
+void blockchain_started(const std::error_code& ec, blockchain_ptr)
+{
+    if (ec)
+        log_fatal() << "error: " << ec.message();
+    else
+        log_info() << "Blockchain initialized!";
+}
+
 int main(int argc, char** argv)
 {
     if (argc != 3)
@@ -53,6 +53,7 @@ int main(int argc, char** argv)
     std::vector<std::string> backend_parameters;
     boost::split(backend_parameters, argv[1], boost::is_any_of(":"));
     BITCOIN_ASSERT(!backend_parameters.empty());
+    async_service service(1);
     blockchain_ptr backend;
     if (backend_parameters[0] == "postgresql")
     {
@@ -60,20 +61,21 @@ int main(int argc, char** argv)
             error_exit("PostgreSQL database backend requires 3 parameters");
         backend.reset(new postgresql_blockchain(core, backend_parameters[1],
             backend_parameters[2], backend_parameters[3]));*/
-	error_exit("PostgreSQL backend is not available at this time.");
+        error_exit("PostgreSQL backend is not available at this time.");
     }
     else if (backend_parameters[0] == "bdb")
     {
-        backend = std::make_shared<bdb_blockchain>("database/");
+        backend = bdb_blockchain::create(
+            service, "database", blockchain_started);
     }
     else
         error_exit("invalid backend specified");
 
-    short_hash pubkey_hash = address_to_short_hash(argv[2]);
-    if (pubkey_hash == null_short_hash)
+    payment_address address;
+    if (!address.set_encoded(argv[2]))
         error_exit("invalid bitcoin address supplied");
     error_exit("program disabled! need to fix it someitme :)");
-    //backend->fetch_balance(pubkey_hash, recv_balance);
+    //backend->fetch_balance(address.hash(), recv_balance);
 
     std::unique_lock<std::mutex> lock(mutex);
     condition.wait(lock, []{ return finished; });

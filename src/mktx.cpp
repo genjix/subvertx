@@ -13,6 +13,7 @@ using namespace libbitcoin;
 using namespace libbitcoin::message;
 using std::placeholders::_1;
 using std::placeholders::_2;
+using std::shared_ptr;
 
 const option long_opts[] = {
     {"previous-output", required_argument, NULL, 'p'},
@@ -159,8 +160,11 @@ void create(const std::vector<origin>& originators,
     {
         transaction_output output;
         output.value = dest.amount;
-        short_hash dest_pubkey_hash = address_to_short_hash(dest.address);
-        output.output_script = build_output_script(dest_pubkey_hash);
+        payment_address dest_address;
+        if (!dest_address.set_encoded(dest.address))
+            error_exit(
+                std::string("bad address: ") + dest.address);
+        output.output_script = build_output_script(dest_address.hash());
         tx.outputs.push_back(output);
     }
 
@@ -189,17 +193,18 @@ void create(const std::vector<origin>& originators,
     }
 
     satoshi_exporter convert_tx;
-    data_chunk raw_tx = convert_tx.to_network(tx);
+    data_chunk raw_tx = convert_tx.save(tx);
     BITCOIN_ASSERT(raw_tx ==
-        convert_tx.to_network(convert_tx.transaction_from_network(raw_tx)));
+        convert_tx.save(convert_tx.load_transaction(raw_tx)));
     log_info() << std::string(raw_tx.begin(), raw_tx.end());
 }
 
 int send(const message::transaction& tx, 
     const std::string& hostname, unsigned short port)
 {
-    network_ptr net(new network);
-    handshake_ptr shake(new handshake);
+    static async_service service(1);
+    auto net = std::make_shared<network>(service);
+    auto shake = std::make_shared<handshake>(service);
 
     shake->connect(net, hostname, port,
         std::bind(&handle_connected, _1, _2, tx));
@@ -237,7 +242,7 @@ message::transaction read_transaction()
     std::string raw_tx_string = dump_file(std::cin);
     data_chunk raw_tx(raw_tx_string.begin(), raw_tx_string.end());
     satoshi_exporter convert_tx;
-    return convert_tx.transaction_from_network(raw_tx);
+    return convert_tx.load_transaction(raw_tx);
 }
 
 int main(int argc, char** argv)
@@ -277,7 +282,8 @@ int main(int argc, char** argv)
                     error_exit("output requires transaction hash and index");
                 origin previous;
                 previous.keypair_name = outkey_parts[0];
-                previous.out.hash = hash_from_pretty(output_parts[0]);
+                previous.out.hash =
+                    hash_from_pretty<hash_digest>(output_parts[0]);
                 if (previous.out.hash == null_hash)
                     error_exit("malformed previous output transaction hash");
                 previous.out.index = 

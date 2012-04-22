@@ -36,6 +36,7 @@ private:
     void check_invs(const std::error_code& ec, const message::inventory& inv,
         channel_ptr node);
 
+    async_service service_;
     network_ptr network_;
     channel_ptr feeder_;
     handshake_ptr handshake_;
@@ -54,9 +55,10 @@ radar_ptr radar::create()
 }
 void radar::initialize()
 {
+    service_.spawn();
     // We can be sure the base classes exist here
-    network_ = std::make_shared<network>();
-    handshake_ = std::make_shared<handshake>();
+    network_ = std::make_shared<network>(service_);
+    handshake_ = std::make_shared<handshake>(service_);
     counter_ = 0;
 }
 

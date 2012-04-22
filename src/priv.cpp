@@ -1,17 +1,8 @@
-#include <bitcoin/bitcoin.hpp>
-
 #include <iostream>
 #include <sstream>
 
-using libbitcoin::elliptic_curve_key;
-using libbitcoin::hash_digest;
-using libbitcoin::data_chunk;
-using libbitcoin::hash_from_pretty;
-using libbitcoin::bytes_from_pretty;
-using libbitcoin::public_key_to_address;
-using libbitcoin::pretty_hex;
-using libbitcoin::private_data;
-using libbitcoin::log_info;
+#include <bitcoin/bitcoin.hpp>
+using namespace bc;
 
 void display_help()
 {
@@ -41,7 +32,7 @@ int new_keypair()
 
 int sign(const std::string input_data, const std::string raw_private_key)
 {
-    hash_digest digest = hash_from_pretty(input_data);
+    hash_digest digest = hash_from_pretty<hash_digest>(input_data);
     elliptic_curve_key ec;
     if (!ec.set_private_key(
             private_data(raw_private_key.begin(), raw_private_key.end())))
@@ -53,7 +44,7 @@ int sign(const std::string input_data, const std::string raw_private_key)
 int verify(const std::string input_data, const std::string& signature_data,
     const std::string raw_private_key)
 {
-    hash_digest digest = hash_from_pretty(input_data);
+    hash_digest digest = hash_from_pretty<hash_digest>(input_data);
     data_chunk signature = bytes_from_pretty(signature_data);
     elliptic_curve_key ec;
     if (!ec.set_private_key(
@@ -69,7 +60,10 @@ int address(const std::string raw_private_key)
     if (!ec.set_private_key(
             private_data(raw_private_key.begin(), raw_private_key.end())))
         error_exit("bad private key");
-    log_info() << public_key_to_address(ec.public_key());
+    payment_address address;
+    if (!set_public_key(address, ec.public_key()))
+        error_exit("set public key on address");
+    log_info() << address.encoded();
     return 0;
 }
 
