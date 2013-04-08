@@ -36,8 +36,6 @@ void display_help()
     puts("");
     puts("  create\tCreate a new transaction and output the binary data");
     puts("  send\t\tSend a transaction to the network, reading from STDIN");
-    puts("  repr\t\tShow hex representation of a data stream");
-    puts("  raw\t\tTurn hex value into a raw data stream");
     puts("");
     puts("Options:");
     puts("");
@@ -360,20 +358,6 @@ int main(int argc, char** argv)
         }
         return send(tx, hostname, port);
     }
-    else if (command == "repr")
-    {
-        std::string raw_bytes = dump_file(std::cin);
-        log_info() <<
-            pretty_hex(data_chunk(raw_bytes.begin(), raw_bytes.end()));;
-        return 0;
-    }
-    else if (command == "raw")
-    {
-        data_chunk raw_bytes = bytes_from_pretty(dump_file(std::cin));
-        std::copy(raw_bytes.begin(), raw_bytes.end(),
-            std::ostream_iterator<byte>(std::cout));
-        return 0;
-    }   
     else if (command == "help")
     {
         display_help();
