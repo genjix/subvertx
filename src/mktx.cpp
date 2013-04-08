@@ -17,9 +17,9 @@ using std::placeholders::_2;
 using std::shared_ptr;
 
 const option long_opts[] = {
-    {"previous-output", required_argument, NULL, 'p'},
+    {"input", required_argument, NULL, 'i'},
     {"keypair", required_argument, NULL, 'k'},
-    {"recipient", required_argument, NULL, 'r'},
+    {"output", required_argument, NULL, 'o'},
     {"host", required_argument, NULL, 'H'},
     {"port", required_argument, NULL, 'P'},
     {"help", required_argument, NULL, 'h'},
@@ -41,10 +41,10 @@ void display_help()
     puts("");
     puts("Options:");
     puts("");
-    puts(" -p, --previous-output\tPrevious output in the form NAME@OUT:INDEX");
+    puts(" -i, --input\tPrevious output in the form NAME@OUT:INDEX");
     puts(" -k, --keypair\t\tLoad a keypair with an identifier NAME@FILE");
     puts("\t\t\tA single dash - for FILE will load from STDIN");
-    puts(" -r, --recipient\tSpecify a destination ADDRESS:AMOUNT");
+    puts(" -o, --output\tSpecify a destination ADDRESS:AMOUNT");
     puts("\t\t\tAMOUNT uses internal bitcoin values");
     puts("\t\t\t  0.1 BTC = 0.1 * 10^8 = 1000000");
     puts(" -H, --host\t\tHost of bitcoin node");
@@ -268,7 +268,7 @@ int main(int argc, char** argv)
     {
         switch (opt)
         {
-            case 'p':
+            case 'i':
             {
                 std::vector<std::string> outkey_parts;
                 boost::split(outkey_parts, optarg, boost::is_any_of("@"));
@@ -306,7 +306,7 @@ int main(int argc, char** argv)
                 break;
             }
             
-            case 'r':
+            case 'o':
             {
                 std::vector<std::string> dest_parts;
                 boost::split(dest_parts, optarg, boost::is_any_of(":"));
