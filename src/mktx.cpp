@@ -1,3 +1,4 @@
+#include <condition_variable>
 #include <functional>
 #include <fstream>
 #include <iostream>
@@ -192,10 +193,8 @@ void create(const std::vector<origin>& originators,
         input_script.push_operation({opcode::special, public_key});
     }
 
-    satoshi_exporter convert_tx;
-    data_chunk raw_tx = convert_tx.save(tx);
-    BITCOIN_ASSERT(raw_tx ==
-        convert_tx.save(convert_tx.load_transaction(raw_tx)));
+    data_chunk raw_tx(satoshi_raw_size(tx));
+    satoshi_save(tx, raw_tx.begin());
     log_info() << std::string(raw_tx.begin(), raw_tx.end());
 }
 
@@ -203,10 +202,10 @@ int send(const message::transaction& tx,
     const std::string& hostname, unsigned short port)
 {
     static async_service service(1);
-    auto net = std::make_shared<network>(service);
-    auto shake = std::make_shared<handshake>(service);
+    static network net(service);
+    static handshake shake(service);
 
-    shake->connect(net, hostname, port,
+    connect(shake, net, hostname, port,
         std::bind(&handle_connected, _1, _2, tx));
 
     std::unique_lock<std::mutex> lock(mutex);
@@ -239,10 +238,10 @@ private_data read_private_key(const std::string& filename)
 
 message::transaction read_transaction()
 {
-    std::string raw_tx_string = dump_file(std::cin);
-    data_chunk raw_tx(raw_tx_string.begin(), raw_tx_string.end());
-    satoshi_exporter convert_tx;
-    return convert_tx.load_transaction(raw_tx);
+    std::string raw_tx = dump_file(std::cin);
+    message::transaction tx;
+    satoshi_load(raw_tx.begin(), raw_tx.end(), tx);
+    return tx;
 }
 
 int main(int argc, char** argv)

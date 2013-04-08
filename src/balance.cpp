@@ -1,3 +1,4 @@
+#include <condition_variable>
 #include <iostream>
 #include <vector>
 #include <boost/algorithm/string.hpp>
@@ -35,7 +36,7 @@ void recv_balance(const std::error_code& ec, uint64_t value)
     condition.notify_one();
 }
 
-void blockchain_started(const std::error_code& ec, blockchain_ptr)
+void blockchain_started(const std::error_code& ec)
 {
     if (ec)
         log_fatal() << "error: " << ec.message();
@@ -54,7 +55,7 @@ int main(int argc, char** argv)
     boost::split(backend_parameters, argv[1], boost::is_any_of(":"));
     BITCOIN_ASSERT(!backend_parameters.empty());
     async_service service(1);
-    blockchain_ptr backend;
+    blockchain* backend = nullptr;
     if (backend_parameters[0] == "postgresql")
     {
         /*if (backend_parameters.size() != 4)
@@ -65,8 +66,9 @@ int main(int argc, char** argv)
     }
     else if (backend_parameters[0] == "bdb")
     {
-        backend = bdb_blockchain::create(
-            service, "database", blockchain_started);
+        bdb_blockchain* bdb_backend = new bdb_blockchain(service);
+        bdb_backend->start("database", blockchain_started);
+        backend = bdb_backend;
     }
     else
         error_exit("invalid backend specified");
@@ -79,6 +81,7 @@ int main(int argc, char** argv)
 
     std::unique_lock<std::mutex> lock(mutex);
     condition.wait(lock, []{ return finished; });
+    delete backend;
     return 0;
 }
 

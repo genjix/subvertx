@@ -37,14 +37,15 @@ private:
         channel_ptr node);
 
     async_service service_;
-    network_ptr network_;
+    network network_;
+    handshake handshake_;
     channel_ptr feeder_;
-    handshake_ptr handshake_;
     size_t counter_;
     std::map<hash_digest, size_t> seen_txs_;
 };
 
 radar::radar()
+  : network_(service_), handshake_(service_), feeder_(nullptr)
 {
 }
 radar_ptr radar::create()
@@ -56,15 +57,12 @@ radar_ptr radar::create()
 void radar::initialize()
 {
     service_.spawn();
-    // We can be sure the base classes exist here
-    network_ = std::make_shared<network>(service_);
-    handshake_ = std::make_shared<handshake>(service_);
     counter_ = 0;
 }
 
 void radar::start()
 {
-    handshake_->connect(network_, "localhost", 8333,
+    connect(handshake_, network_, "localhost", 8333,
         std::bind(&radar::initial_handshake, shared_from_this(), _1, _2));
 }
 
@@ -110,7 +108,7 @@ void radar::receive_addr(const std::error_code& ec,
             char_repr(netaddr.ip[14]) + "." +
             char_repr(netaddr.ip[15]);
         log_debug() << "Connecting to: " << ip_repr;
-        handshake_->connect(network_, ip_repr, 8333,
+        connect(handshake_, network_, ip_repr, 8333,
             std::bind(&radar::monitor, shared_from_this(), _1, _2));
     }
 }
