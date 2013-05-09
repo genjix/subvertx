@@ -75,7 +75,7 @@ int main(int argc, char** argv)
 
     payment_address address;
     if (!address.set_encoded(argv[2]))
-        error_exit("invalid bitcoin address supplied");
+        error_exit("invalid bitcoin address_type supplied");
     error_exit("program disabled! need to fix it someitme :)");
     //backend->fetch_balance(address.hash(), recv_balance);
 

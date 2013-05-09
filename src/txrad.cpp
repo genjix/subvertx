@@ -31,9 +31,9 @@ private:
     void initial_handshake(const std::error_code& ec, channel_ptr node);
     void request_addresses();
     void receive_addr(const std::error_code& ec,
-        const message::address& packet);
+        const address_type& packet);
     void monitor(const std::error_code& ec, channel_ptr node);
-    void check_invs(const std::error_code& ec, const message::inventory& inv,
+    void check_invs(const std::error_code& ec, const inventory_type& inv,
         channel_ptr node);
 
     async_service service_;
@@ -86,7 +86,7 @@ void radar::request_addresses()
 {
     feeder_->subscribe_address(
         std::bind(&radar::receive_addr, shared_from_this(), _1, _2));
-    feeder_->send(message::get_address(), null_handler);
+    feeder_->send(get_address_type(), null_handler);
 }
 
 std::string char_repr(uint8_t c)
@@ -94,10 +94,10 @@ std::string char_repr(uint8_t c)
     return boost::lexical_cast<std::string>(static_cast<size_t>(c));
 }
 void radar::receive_addr(const std::error_code& ec,
-    const message::address& packet)
+    const address_type& packet)
 {
     check_exit(ec);
-    for (const message::network_address& netaddr: packet.addresses)
+    for (const network_address_type& netaddr: packet.addresses)
     {
         // Only support ipv4 cos I'm lazy :(
         if (netaddr.ip[10] != 0xff && netaddr.ip[11] != 0xff)
@@ -127,13 +127,13 @@ void radar::monitor(const std::error_code& ec, channel_ptr node)
 }
 
 void radar::check_invs(const std::error_code& ec,
-    const message::inventory& inv, channel_ptr node)
+    const inventory_type& inv, channel_ptr node)
 {
     check_exit(ec);
-    for (const message::inventory_vector& ivec: inv.inventories)
+    for (const inventory_vector_type& ivec: inv.inventories)
     {
         // Only interested in txs
-        if (ivec.type != message::inventory_type::transaction)
+        if (ivec.type != inventory_type_id::transaction)
             continue;
         log_debug() << "Found " << pretty_hex(ivec.hash) << "!";
     }

@@ -11,7 +11,6 @@
 #include <bitcoin/bitcoin.hpp>
 
 using namespace libbitcoin;
-using namespace libbitcoin::message;
 using std::placeholders::_1;
 using std::placeholders::_2;
 using std::shared_ptr;
@@ -34,8 +33,8 @@ void display_help()
     puts("");
     puts("Commands:");
     puts("");
-    puts("  create\tCreate a new transaction and output the binary data");
-    puts("  send\t\tSend a transaction to the network, reading from STDIN");
+    puts("  create\tCreate a new transaction_type and output the binary data");
+    puts("  send\t\tSend a transaction_type to the network, reading from STDIN");
     puts("");
     puts("Options:");
     puts("");
@@ -77,7 +76,7 @@ void handle_tx_sent(const std::error_code& ec)
 }
 
 void handle_connected(const std::error_code& ec, channel_ptr node,
-    const message::transaction& tx)
+    const transaction_type& tx)
 {
     if (ec)
         error_exit(ec.message());
@@ -137,13 +136,13 @@ void create(const std::vector<origin>& originators,
     const std::vector<destination>& endpoints,
     const std::vector<named_keypair>& keypairs)
 {
-    transaction tx;
+    transaction_type tx;
     tx.version = 1;
     tx.locktime = 0;
 
     for (const origin& previous: originators)
     {
-        transaction_input input;
+        transaction_input_type input;
         input.previous_output = previous.out;
         input.sequence = 4294967295;
         data_chunk public_key =
@@ -157,7 +156,7 @@ void create(const std::vector<origin>& originators,
 
     for (const destination& dest: endpoints)
     {
-        transaction_output output;
+        transaction_output_type output;
         output.value = dest.amount;
         payment_address dest_address;
         if (!dest_address.set_encoded(dest.address))
@@ -170,7 +169,7 @@ void create(const std::vector<origin>& originators,
     BITCOIN_ASSERT(tx.inputs.size() == originators.size());
     for (size_t i = 0; i < originators.size(); ++i)
     {
-        transaction_input& input = tx.inputs[i];
+        transaction_input_type& input = tx.inputs[i];
         const origin& previous = originators[i];
         // Rebuild previous output script
         auto key = load_private_key(previous.keypair_name, keypairs);
@@ -196,7 +195,7 @@ void create(const std::vector<origin>& originators,
     log_info() << std::string(raw_tx.begin(), raw_tx.end());
 }
 
-int send(const message::transaction& tx, 
+int send(const transaction_type& tx, 
     const std::string& hostname, unsigned short port)
 {
     static async_service service(1);
@@ -234,10 +233,10 @@ private_data read_private_key(const std::string& filename)
     return private_data(raw_private_key.begin(), raw_private_key.end());
 }
 
-message::transaction read_transaction()
+transaction_type read_transaction()
 {
     std::string raw_tx = dump_file(std::cin);
-    message::transaction tx;
+    transaction_type tx;
     satoshi_load(raw_tx.begin(), raw_tx.end(), tx);
     return tx;
 }
@@ -276,13 +275,13 @@ int main(int argc, char** argv)
                 boost::split(output_parts, outkey_parts[1], 
                     boost::is_any_of(":"));
                 if (output_parts.size() != 2)
-                    error_exit("output requires transaction hash and index");
+                    error_exit("output requires transaction_type hash and index");
                 origin previous;
                 previous.keypair_name = outkey_parts[0];
                 previous.out.hash =
                     hash_from_pretty<hash_digest>(output_parts[0]);
                 if (previous.out.hash == null_hash)
-                    error_exit("malformed previous output transaction hash");
+                    error_exit("malformed previous output transaction_type hash");
                 previous.out.index = 
                     boost::lexical_cast<uint32_t>(output_parts[1]);
                 originators.push_back(previous);
@@ -309,7 +308,7 @@ int main(int argc, char** argv)
                 std::vector<std::string> dest_parts;
                 boost::split(dest_parts, optarg, boost::is_any_of(":"));
                 if (dest_parts.size() != 2)
-                    error_exit("recipient requires address and amount");
+                    error_exit("recipient requires address_type and amount");
                 destination dest;
                 dest.address = dest_parts[0];
                 dest.amount = boost::lexical_cast<uint64_t>(dest_parts[1]);
@@ -347,7 +346,7 @@ int main(int argc, char** argv)
     }
     else if (command == "send")
     {
-        message::transaction tx;
+        transaction_type tx;
         try
         {
             tx = read_transaction();
